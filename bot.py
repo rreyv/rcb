@@ -257,7 +257,7 @@ def update_thread_wrapper(r, debug_mode):
   con = None
   con = sql.connect('rcricketbot.db',detect_types=sql.PARSE_COLNAMES)
   cur = con.cursor()
-  cur.execute("select match_id, series_id, day, url, requestor, created_time as '[timestamp]', Pkey, sub_id from created where day_over = 0")
+  cur.execute("select match_id, series_id, day, url, requestor, created_time as '[timestamp]', Pkey, sub_id from created where day_over < 6")
   data=cur.fetchall()
   con.commit()
   con.close()
@@ -271,7 +271,7 @@ def set_day_over(Pkey):
   con = None
   con = sql.connect('rcricketbot.db',detect_types=sql.PARSE_DECLTYPES)
   cur = con.cursor()
-  cur.execute("update created set day_over = 1 where Pkey = ?",(Pkey,))
+  cur.execute("update created set day_over = day_over + 1 where Pkey = ?",(Pkey,))
   con.commit()
   con.close()
 
@@ -441,44 +441,47 @@ def inbox(upcoming_schedule, r):
   if not messages:
     return "No unread messages."
 
-  for message in messages:
-    subject = str(message.subject)
-    author = str(message.author)
-    split_subject = subject.split("^")
-    try:
-      message.mark_as_read()
-    except:
-      pass
-    if ((message.was_comment==False) and (message.id not in already_done)):
-      if message.author.comment_karma<100:
-        reply_text = 'Your comment karma is too low to control this bot.'
-        logging.info('/u/' + author + ' tried to control the bot with < 100 karma. Subject: ' + subject + '. Body: ' + str(message.body) + '.')
-      elif split_subject[0].strip()=='create':
-        match_id = int(split_subject[1].strip())
-        series_id = int(split_subject[2].strip())
-        day = int(split_subject[3].strip())
-        match_day = find_match_day(upcoming_schedule, match_id, series_id, day)
-        if match_day:
-          add_to_requested_table(match_day, author, match_day.match_name)
-          reply_text = 'Match thread for ' + match_day.match_name + ' has been scheduled.'
-          logging.info('Match thread for ' + match_day.match_name + ' successfully requested by ' + author + '.')
-        else:
-          reply_text = 'Could not find match info. Did you change the subject of the message? If yes, please do not do that and resend the message. If not, just create a thread manually instead.'
-      elif split_subject[0].strip()=='cricinfo':
-        cricinfo_url = str(message.body)
-        reddit_id = split_subject[1].strip()
-        result = add_to_match_info_table(r, reddit_id, cricinfo_url, author)
-        if result:
-          reply_text = 'Thanks, the information has been saved and the match thread will be updated shortly.'
-        else:
-          reply_text = 'Error occurred. Someone might have sent in a link right before you. If the match thread does not show a link in a few minutes, try again.'
-      else:
-        reply_text = "I don't know what you're trying to say."
+  try:
+    for message in messages:
+      subject = str(message.subject)
+      author = str(message.author)
+      split_subject = subject.split("^")
       try:
-        message.reply(reply_text)
-        already_done.append(message.id)
+        message.mark_as_read()
       except:
-        logging.info ('Error occured when responding to the user but actions probably happened.')
+        pass
+      if ((message.was_comment==False) and (message.id not in already_done)):
+        if message.author.comment_karma<100:
+          reply_text = 'Your comment karma is too low to control this bot.'
+          logging.info('/u/' + author + ' tried to control the bot with < 100 karma. Subject: ' + subject + '. Body: ' + str(message.body) + '.')
+        elif split_subject[0].strip()=='create':
+          match_id = int(split_subject[1].strip())
+          series_id = int(split_subject[2].strip())
+          day = int(split_subject[3].strip())
+          match_day = find_match_day(upcoming_schedule, match_id, series_id, day)
+          if match_day:
+            add_to_requested_table(match_day, author, match_day.match_name)
+            reply_text = 'Match thread for ' + match_day.match_name + ' has been scheduled.'
+            logging.info('Match thread for ' + match_day.match_name + ' successfully requested by ' + author + '.')
+          else:
+            reply_text = 'Could not find match info. Did you change the subject of the message? If yes, please do not do that and resend the message. If not, just create a thread manually instead.'
+        elif split_subject[0].strip()=='cricinfo':
+          cricinfo_url = str(message.body)
+          reddit_id = split_subject[1].strip()
+          result = add_to_match_info_table(r, reddit_id, cricinfo_url, author)
+          if result:
+            reply_text = 'Thanks, the information has been saved and the match thread will be updated shortly.'
+          else:
+            reply_text = 'Error occurred. Someone might have sent in a link right before you. If the match thread does not show a link in a few minutes, try again.'
+        else:
+          reply_text = "I don't know what you're trying to say."
+        try:
+          message.reply(reply_text)
+          already_done.append(message.id)
+        except:
+          logging.info ('Error occured when responding to the user but actions probably happened.')
+  except:
+    logging.info('Inbox troubles!')
 
 def add_to_match_info_table(r, reddit_id, cricinfo_url, author):
   #if reddit_url.find('reddit.com')==-1 and reddit_url.find('redd.it')==-1:
