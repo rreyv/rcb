@@ -1,4 +1,4 @@
-reates match threads and updates the sidebar and a wiki for /r/cricket
+Creates match threads and updates the sidebar and a wiki for /r/cricket
 
 Features
 -----
@@ -21,6 +21,7 @@ Running this on your own subreddit
 5. Edit config.ini to suit your needs.
 6. run the bot - `python bot.py`
 
+Note: Private messages are hardcoded to be sent to /u/rCricketBot so that will have to be changed to your bot manually.
 
 
  [1]: https://praw.readthedocs.org/en/latest/ "PRAW"
